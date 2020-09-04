@@ -107,7 +107,7 @@ func TestBadParameters(t *testing.T) {
 		t.Fatal("element <= 0 not captured")
 	}
 
-	// InitBySize tests
+	// InitByParameters tests
 
 	_, err = ring.InitBySize(1, 0)
 	if err != nil {
