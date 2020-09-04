@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package ring_test
+package ring
 
 import (
 	"fmt"
@@ -10,8 +10,6 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"github.com/thetannerryan/ring"
 )
 
 const (
@@ -21,9 +19,9 @@ const (
 
 var (
 	// main testing
-	r, _ = ring.Init(tests, fpRate)
+	r, _ = Init(tests, fpRate)
 	// benchmark
-	rBench, _ = ring.Init(tests, fpRate)
+	rBench, _ = Init(tests, fpRate)
 	// false positive count
 	positiveCount = 0
 	// false negative count
@@ -82,33 +80,33 @@ func BenchmarkTest(b *testing.B) {
 
 // TestBadParameters ensures that errornous parameters return an error.
 func TestBadParameters(t *testing.T) {
-	_, err := ring.Init(100, 1)
+	_, err := Init(100, 1)
 	if err == nil {
 		t.Fatal("falsePositive >= 1 not captured")
 	}
-	_, err = ring.Init(100, 1.1)
+	_, err = Init(100, 1.1)
 	if err == nil {
 		t.Fatal("falsePositive >= 1 not captured")
 	}
-	_, err = ring.Init(100, 0)
+	_, err = Init(100, 0)
 	if err == nil {
 		t.Fatal("falsePositive <= 0 not captured")
 	}
-	_, err = ring.Init(100, -0.1)
+	_, err = Init(100, -0.1)
 	if err == nil {
 		t.Fatal("falsePositive <= 0 not captured")
 	}
-	_, err = ring.Init(0, 0.1)
+	_, err = Init(0, 0.1)
 	if err == nil {
 		t.Fatal("element <= 0 not captured")
 	}
-	_, err = ring.Init(-1, 0.1)
+	_, err = Init(-1, 0.1)
 	if err == nil {
 		t.Fatal("element <= 0 not captured")
 	}
 
 	// InitByParameters tests
-	_, err = ring.InitByParameters(1, 0)
+	_, err = InitByParameters(1, 0)
 	if err != nil {
 		t.Fatal("Hash function cannot be <=0")
 	}
@@ -167,8 +165,8 @@ func TestMerge(t *testing.T) {
 	for i := uint(0); i < 20; i++ {
 		innerCount := 1 << i
 		elems := make([][]byte, innerCount)
-		r, _ := ring.Init(tests, fpRate)
-		r2, _ := ring.Init(tests, fpRate)
+		r, _ := Init(tests, fpRate)
+		r2, _ := Init(tests, fpRate)
 		for j := 0; j < innerCount; j++ {
 			// generate random data
 			size := rand.Intn(max-min) + min
@@ -197,13 +195,13 @@ func TestMerge(t *testing.T) {
 		}
 	}
 
-	r, _ := ring.Init(tests, fpRate)
+	r, _ := Init(tests, fpRate)
 	// different params should fail to merge
-	r2, _ := ring.Init(tests, 0.1)
+	r2, _ := Init(tests, 0.1)
 	if r.Merge(r2) == nil {
 		t.Errorf("Expected error calling Merge with different size")
 	}
-	r2, _ = ring.Init(100, fpRate)
+	r2, _ = Init(100, fpRate)
 	if r.Merge(r2) == nil {
 		t.Errorf("Expected error calling Merge with different fp")
 	}
@@ -214,7 +212,7 @@ func TestMerge(t *testing.T) {
 func TestMarshal(t *testing.T) {
 	// Travis CI has strict memory limits that we hit if too high
 	size := tests / 100
-	r, _ := ring.Init(size, fpRate)
+	r, _ := Init(size, fpRate)
 	elems := make([][]byte, size)
 	var token []byte
 	// byte range of random data
@@ -235,7 +233,7 @@ func TestMarshal(t *testing.T) {
 		return
 	}
 
-	r2 := new(ring.Ring)
+	r2 := new(Ring)
 	r2.UnmarshalBinary(out)
 
 	notFound := 0
