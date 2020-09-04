@@ -50,7 +50,6 @@ func Init(elements int, falsePositive float64) (*Ring, error) {
 	return &r, nil
 }
 
-
 // InitByParameters initializes a bloom filter allowing the user to explicitly set
 // the size of the bit array and the amount of hash functions
 func InitByParameters(size, hashFunctions uint64) (*Ring, error) {
@@ -69,7 +68,6 @@ func InitByParameters(size, hashFunctions uint64) (*Ring, error) {
 	r.bits = make([]uint8, r.size/8+1)
 	return &r, nil
 }
-
 
 // Add adds the data to the ring.
 func (r *Ring) Add(data []byte) {
