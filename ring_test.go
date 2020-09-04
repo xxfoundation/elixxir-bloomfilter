@@ -109,7 +109,7 @@ func TestBadParameters(t *testing.T) {
 
 	// InitByParameters tests
 
-	_, err = ring.InitBySize(1, 0)
+	_, err = ring.InitByParameters(1, 0)
 	if err != nil {
 		t.Fatal("Hash function cannot be <=0")
 	}
