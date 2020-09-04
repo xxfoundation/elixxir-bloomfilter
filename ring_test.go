@@ -106,14 +106,6 @@ func TestBadParameters(t *testing.T) {
 	if err == nil {
 		t.Fatal("element <= 0 not captured")
 	}
-
-	// InitByParameters tests
-
-	_, err = ring.InitBySize(1, 0)
-	if err != nil {
-		t.Fatal("Hash function cannot be <=0")
-	}
-
 }
 
 // TestReset ensures the Ring is cleared on Reset().
