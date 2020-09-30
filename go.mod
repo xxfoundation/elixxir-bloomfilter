@@ -1,3 +1,3 @@
-module github.com/thetannerryan/ring
+module gitlab.com/elixxir/bloomfilter
 
 go 1.12
