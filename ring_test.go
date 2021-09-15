@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 	}
 }
 
-// BenchmarkAdd tests adding elements to a Ring.
+// BenchmarkAdd tests adding elements to a Bloom.
 func BenchmarkAdd(b *testing.B) {
 	buff := make([]byte, 4)
 	for i := 0; i < b.N; i++ {
@@ -69,7 +69,7 @@ func BenchmarkAdd(b *testing.B) {
 	}
 }
 
-// BenchmarkTest tests elements in a Ring.
+// BenchmarkTest tests elements in a Bloom.
 func BenchmarkTest(b *testing.B) {
 	buff := make([]byte, 4)
 	for i := 0; i < b.N; i++ {
@@ -113,7 +113,7 @@ func TestBadParameters(t *testing.T) {
 
 }
 
-// TestReset ensures the Ring is cleared on Reset().
+// TestReset ensures the Bloom is cleared on Reset().
 func TestReset(t *testing.T) {
 	buff := make([]byte, 4)
 
@@ -133,7 +133,7 @@ func TestReset(t *testing.T) {
 	}
 }
 
-// TestData performs unit tests on the Ring.
+// TestData performs unit tests on the Bloom.
 func TestData(t *testing.T) {
 	var token []byte
 	// byte range of random data
@@ -156,7 +156,7 @@ func TestData(t *testing.T) {
 	}
 }
 
-// TestMerge ensures that a Merge produces the right Ring.
+// TestMerge ensures that a Merge produces the right Bloom.
 func TestMerge(t *testing.T) {
 	var token []byte
 	// byte range of random data
@@ -207,9 +207,9 @@ func TestMerge(t *testing.T) {
 	}
 }
 
-// TestMarshal ensures that the Marshal and Unmarshal methods produce
-// duplicate Ring's.
-func TestMarshal(t *testing.T) {
+// TestMarshalBinary ensures that the Marshal and Unmarshal methods produce
+// duplicate Bloom's.
+func TestMarshalBinary(t *testing.T) {
 	// Travis CI has strict memory limits that we hit if too high
 	size := tests / 100
 	r, _ := Init(size, fpRate)
@@ -233,7 +233,7 @@ func TestMarshal(t *testing.T) {
 		return
 	}
 
-	r2 := new(Ring)
+	r2 := new(Bloom)
 	r2.UnmarshalBinary(out)
 
 	notFound := 0
@@ -255,6 +255,52 @@ func TestMarshal(t *testing.T) {
 	if r2.UnmarshalBinary(out) == nil {
 		t.Errorf("Expected error calling UnmarshalBinary with wrong version")
 	}
+}
+
+func TestBloom_MarshalStorage(t *testing.T) {
+	// Travis CI has strict memory limits that we hit if too high
+	size := tests / 100
+	r, _ := Init(size, fpRate)
+	elems := make([][]byte, size)
+	var token []byte
+	// byte range of random data
+	min, max := 8, 8192
+	// test a range of sizes
+	for i := uint(0); i < uint(size); i++ {
+		// generate random data
+		size := rand.Intn(max-min) + min
+		token = make([]byte, size)
+		rand.Read(token)
+		elems[i] = token
+		r.Add(token)
+	}
+
+	out, err := r.MarshalStorage()
+	if err != nil {
+		t.Errorf("Unexpected error from MarshalStorage: %v", err)
+		return
+	}
+
+	r2, _ := Init(size, fpRate)
+	r2.UnmarshalStorage(out, 2)
+
+	notFound := 0
+	for _, el := range elems {
+		if !r.Test(el) {
+			notFound++
+		}
+	}
+	if notFound > 0 {
+		t.Errorf("Unexpected number of tokens not found: %v", notFound)
+	}
+
+	// unexpected length should error
+	if r2.UnmarshalStorage(nil, 0) == nil {
+		t.Errorf("Expected error calling UnmarshalBinary with nil")
+	}
+	// unexpected version should error
+	out[0] = 0
+
 }
 
 // intToByte converts an int (32-bit max) to byte array.

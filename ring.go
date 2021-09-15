@@ -18,8 +18,8 @@ var (
 	errHash          = errors.New("error: Hash functions must be greater than zero")
 )
 
-// Ring contains the information for a ring data store.
-type Ring struct {
+// Bloom contains the information for a ring data store.
+type Bloom struct {
 	size  uint64        // number of bits (bit array is size/8+1)
 	bits  []uint8       // main bit array
 	hash  uint64        // number of hash rounds
@@ -29,7 +29,7 @@ type Ring struct {
 // Init initializes and returns a new ring, or an error. Given a number of
 // elements, it accurately states if data is not added. Within a falsePositive
 // rate, it will indicate if the data has been added.
-func Init(elements int, falsePositive float64) (*Ring, error) {
+func Init(elements int, falsePositive float64) (*Bloom, error) {
 	if elements <= 0 {
 		return nil, errElements
 	}
@@ -37,7 +37,7 @@ func Init(elements int, falsePositive float64) (*Ring, error) {
 		return nil, errFalsePositive
 	}
 
-	r := Ring{}
+	r := Bloom{}
 	// number of bits
 	m := (-1 * float64(elements) * math.Log(falsePositive)) / math.Pow(math.Log(2), 2)
 	// number of hash operations
@@ -52,7 +52,7 @@ func Init(elements int, falsePositive float64) (*Ring, error) {
 
 // InitByParameters initializes a bloom filter allowing the user to explicitly set
 // the size of the bit array and the amount of hash functions
-func InitByParameters(size, hashFunctions uint64) (*Ring, error) {
+func InitByParameters(size, hashFunctions uint64) (*Bloom, error) {
 	if size <= 0 {
 		return nil, errElements
 	}
@@ -60,7 +60,7 @@ func InitByParameters(size, hashFunctions uint64) (*Ring, error) {
 		return nil, errHash
 	}
 
-	r := Ring{}
+	r := Bloom{}
 
 	r.mutex = &sync.RWMutex{}
 	r.size = size
@@ -70,7 +70,7 @@ func InitByParameters(size, hashFunctions uint64) (*Ring, error) {
 }
 
 // Add adds the data to the ring.
-func (r *Ring) Add(data []byte) {
+func (r *Bloom) Add(data []byte) {
 	// generate hashes
 	hash := generateMultiHash(data)
 	r.mutex.Lock()
@@ -81,8 +81,13 @@ func (r *Ring) Add(data []byte) {
 	r.mutex.Unlock()
 }
 
+// Returns the size of the bloom filter.
+func (r *Bloom) GetSize() uint64 {
+	return r.size
+}
+
 // Reset clears the ring.
-func (r *Ring) Reset() {
+func (r *Bloom) Reset() {
 	r.mutex.Lock()
 	r.bits = make([]uint8, r.size/8+1)
 	r.mutex.Unlock()
@@ -90,7 +95,7 @@ func (r *Ring) Reset() {
 
 // Test returns a bool if the data is in the ring. True indicates that the data
 // may be in the ring, while false indicates that the data is not in the ring.
-func (r *Ring) Test(data []byte) bool {
+func (r *Bloom) Test(data []byte) bool {
 	// generate hashes
 	hash := generateMultiHash(data)
 	r.mutex.RLock()
@@ -105,8 +110,8 @@ func (r *Ring) Test(data []byte) bool {
 	return true
 }
 
-// Merges the sent Ring into itself.
-func (r *Ring) Merge(m *Ring) error {
+// Merges the sent Bloom into itself.
+func (r *Bloom) Merge(m *Bloom) error {
 	if r.size != m.size || r.hash != m.hash {
 		return errors.New("rings must have the same m/k parameters")
 	}
@@ -122,7 +127,7 @@ func (r *Ring) Merge(m *Ring) error {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
-func (r *Ring) MarshalBinary() ([]byte, error) {
+func (r *Bloom) MarshalBinary() ([]byte, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	out := make([]byte, len(r.bits)+17)
@@ -135,7 +140,7 @@ func (r *Ring) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
-func (r *Ring) UnmarshalBinary(data []byte) error {
+func (r *Bloom) UnmarshalBinary(data []byte) error {
 	// 17 bytes for version + size + hash and 1 byte at least for bits
 	if len(data) < 17+1 {
 		return fmt.Errorf("incorrect length: %d", len(data))
@@ -155,5 +160,46 @@ func (r *Ring) UnmarshalBinary(data []byte) error {
 		r.bits = make([]uint8, r.size/8+1)
 	}
 	copy(r.bits, data[17:])
+	return nil
+}
+
+// MarshalStorage is a marshal function which returns the bit array only,
+// excluding extraneous information of the bloom filter.
+// Included for efficient DB storage purposes
+func (r *Bloom) MarshalStorage() ([]byte, error) {
+	r.mutex.RLock()
+
+	out := make([]byte, len(r.bits))
+	// Exclude version bit
+	copy(out[:], r.bits[1:])
+	r.mutex.RUnlock()
+
+	return out, nil
+}
+
+// UnmarshalStorage is an unmarshal function which populates
+// passed in data into the bloom filters bit array.
+// Included for efficient DB storage purposes
+func (r *Bloom) UnmarshalStorage(data []byte, hash uint64) error {
+	// 17 bytes for version + size + hash and 1 byte at least for bits
+	if len(data) < 17+1 {
+		return fmt.Errorf("incorrect length: %d", len(data))
+	}
+
+	if r.mutex == nil {
+		r.mutex = new(sync.RWMutex)
+	}
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.hash = hash
+	r.size = uint64((len(r.bits) - 1) * 8)
+	// sanity check against the bits being the wrong size
+	if len(r.bits) != int(r.size/8+1) {
+		fmt.Printf("setting to ")
+		r.bits = make([]uint8, r.size/8+1)
+	}
+	copy(r.bits[1:], data[:])
+
 	return nil
 }
