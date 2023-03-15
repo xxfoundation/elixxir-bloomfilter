@@ -16,6 +16,7 @@ var (
 	errElements      = errors.New("error: elements must be greater than 0")
 	errFalsePositive = errors.New("error: falsePositive must be greater than 0 and less than 1")
 	errHash          = errors.New("error: Hash functions must be greater than zero")
+	errBadSize       = errors.New("error: the incoming data is not sized for this buffer")
 )
 
 // Bloom contains the information for a ring data store.
@@ -46,7 +47,7 @@ func Init(elements int, falsePositive float64) (*Bloom, error) {
 	r.mutex = &sync.RWMutex{}
 	r.size = uint64(math.Ceil(m))
 	r.hash = uint64(math.Ceil(k))
-	r.bits = make([]uint8, r.size/8+1)
+	r.bits = make([]uint8, getBuffSize(r.size))
 	return &r, nil
 }
 
@@ -65,7 +66,7 @@ func InitByParameters(size, hashFunctions uint64) (*Bloom, error) {
 	r.mutex = &sync.RWMutex{}
 	r.size = size
 	r.hash = hashFunctions
-	r.bits = make([]uint8, r.size/8+1)
+	r.bits = make([]uint8, getBuffSize(r.size))
 	return &r, nil
 }
 
@@ -84,6 +85,11 @@ func (r *Bloom) Add(data []byte) {
 // Returns the size of the bloom filter.
 func (r *Bloom) GetSize() uint64 {
 	return r.size
+}
+
+// Returns the number the hash operations
+func (r *Bloom) GetHashOpCount() uint64 {
+	return r.hash
 }
 
 // Reset clears the ring.
@@ -156,8 +162,9 @@ func (r *Bloom) UnmarshalBinary(data []byte) error {
 	r.size = binary.BigEndian.Uint64(data[1:9])
 	r.hash = binary.BigEndian.Uint64(data[9:17])
 	// sanity check against the bits being the wrong size
-	if len(r.bits) != int(r.size/8+1) {
-		r.bits = make([]uint8, r.size/8+1)
+	buffSize := getBuffSize(r.size)
+	if len(r.bits) != int(buffSize) {
+		r.bits = make([]uint8, buffSize)
 	}
 	copy(r.bits, data[17:])
 	return nil
@@ -168,38 +175,35 @@ func (r *Bloom) UnmarshalBinary(data []byte) error {
 // Included for efficient DB storage purposes
 func (r *Bloom) MarshalStorage() ([]byte, error) {
 	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	out := make([]byte, len(r.bits))
 	// Exclude version bit
-	copy(out[:], r.bits[1:])
-	r.mutex.RUnlock()
+	copy(out[:], r.bits[:])
 
 	return out, nil
 }
 
 // UnmarshalStorage is an unmarshal function which populates
 // passed in data into the bloom filters bit array.
-// Included for efficient DB storage purposes
-func (r *Bloom) UnmarshalStorage(data []byte, hash uint64) error {
-	// 17 bytes for version + size + hash and 1 byte at least for bits
-	if len(data) < 17+1 {
-		return fmt.Errorf("incorrect length: %d", len(data))
+// The stored data must be sized for this filter and be created with the same filter parameters,
+// misconfigurations will not be caught
+// Included for efficient DB storage purpose.
+func (r *Bloom) UnmarshalStorage(data []byte) error {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	if len(data) != len(r.bits) {
+		return errBadSize
 	}
 
-	if r.mutex == nil {
-		r.mutex = new(sync.RWMutex)
-	}
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	r.hash = hash
-	r.size = uint64((len(r.bits) - 1) * 8)
-	// sanity check against the bits being the wrong size
-	if len(r.bits) != int(r.size/8+1) {
-		fmt.Printf("setting to ")
-		r.bits = make([]uint8, r.size/8+1)
-	}
-	copy(r.bits[1:], data[:])
-
+	copy(r.bits[:], data[:])
 	return nil
+}
+
+func getBuffSize(size uint64) uint64 {
+	if size%8 != 0 {
+		return size/8 + 1
+	}
+	return size / 8
 }

@@ -6,6 +6,7 @@ package ring
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"testing"
@@ -282,7 +283,7 @@ func TestBloom_MarshalStorage(t *testing.T) {
 	}
 
 	r2, _ := Init(size, fpRate)
-	r2.UnmarshalStorage(out, 2)
+	r2.UnmarshalStorage(out)
 
 	notFound := 0
 	for _, el := range elems {
@@ -295,11 +296,28 @@ func TestBloom_MarshalStorage(t *testing.T) {
 	}
 
 	// unexpected length should error
-	if r2.UnmarshalStorage(nil, 0) == nil {
+	if r2.UnmarshalStorage(nil) == nil {
 		t.Errorf("Expected error calling UnmarshalBinary with nil")
 	}
 	// unexpected version should error
 	out[0] = 0
+
+}
+
+// This tests a previous error in storage marshal/nmarshal where the
+// size differed from expected.
+func TestBloom_StorageSize(t *testing.T) {
+	orig, err := Init(30, 0.05)
+	require.NoError(t, err)
+	unstored, err := Init(30, 0.05)
+	require.NoError(t, err)
+
+	marsh, err := orig.MarshalStorage()
+	require.NoError(t, err)
+
+	unstored.UnmarshalStorage(marsh)
+
+	require.Equal(t, orig, unstored)
 
 }
 
