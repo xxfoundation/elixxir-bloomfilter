@@ -45,6 +45,8 @@ func Init(elements int, falsePositive float64) (*Bloom, error) {
 
 	r.mutex = &sync.RWMutex{}
 	r.size = uint64(math.Ceil(m))
+	// size must be a multiple of 8, round up
+	r.size += r.size%8
 	r.hash = uint64(math.Ceil(k))
 	r.bits = make([]uint8, r.size/8+1)
 	return &r, nil
@@ -52,6 +54,7 @@ func Init(elements int, falsePositive float64) (*Bloom, error) {
 
 // InitByParameters initializes a bloom filter allowing the user to explicitly set
 // the size of the bit array and the amount of hash functions
+// The size will be rounded up to the nearest byte.
 func InitByParameters(size, hashFunctions uint64) (*Bloom, error) {
 	if size <= 0 {
 		return nil, errElements
@@ -64,6 +67,8 @@ func InitByParameters(size, hashFunctions uint64) (*Bloom, error) {
 
 	r.mutex = &sync.RWMutex{}
 	r.size = size
+	// size must be a multiple of 8, round up
+	r.size += r.size%8
 	r.hash = hashFunctions
 	r.bits = make([]uint8, r.size/8+1)
 	return &r, nil
