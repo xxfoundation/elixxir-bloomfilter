@@ -86,6 +86,12 @@ func (r *Bloom) GetSize() uint64 {
 	return r.size
 }
 
+// Returns the number the hash operations
+func (r *Bloom) GetHashOpCount() uint64 {
+	return r.hash
+}
+
+
 // Reset clears the ring.
 func (r *Bloom) Reset() {
 	r.mutex.Lock()
@@ -196,7 +202,6 @@ func (r *Bloom) UnmarshalStorage(data []byte, hash uint64) error {
 	r.size = uint64((len(r.bits) - 1) * 8)
 	// sanity check against the bits being the wrong size
 	if len(r.bits) != int(r.size/8+1) {
-		fmt.Printf("setting to ")
 		r.bits = make([]uint8, r.size/8+1)
 	}
 	copy(r.bits[1:], data[:])
