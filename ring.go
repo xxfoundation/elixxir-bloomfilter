@@ -87,6 +87,11 @@ func (r *Bloom) GetSize() uint64 {
 	return r.size
 }
 
+// Returns the number the hash operations
+func (r *Bloom) GetHashOpCount() uint64 {
+	return r.hash
+}
+
 // Reset clears the ring.
 func (r *Bloom) Reset() {
 	r.mutex.Lock()
