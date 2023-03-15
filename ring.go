@@ -16,6 +16,7 @@ var (
 	errElements      = errors.New("error: elements must be greater than 0")
 	errFalsePositive = errors.New("error: falsePositive must be greater than 0 and less than 1")
 	errHash          = errors.New("error: Hash functions must be greater than zero")
+	errBadSize       = errors.New("error: the incoming data is not sized for this buffer")
 )
 
 // Bloom contains the information for a ring data store.
@@ -183,12 +184,12 @@ func (r *Bloom) MarshalStorage() ([]byte, error) {
 // The stored data must be sized for this filter and be created with the same filter parameters,
 // misconfigurations will not be caught
 // Included for efficient DB storage purpose.
-func (r *Bloom) UnmarshalStorage(data []byte, hash uint64) error {
+func (r *Bloom) UnmarshalStorage(data []byte) error {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
 	if len(data) != len(r.bits) {
-		return errors.New("the incomming data is not sized for this buffer")
+		return errBadSize
 	}
 
 	copy(r.bits[:], data[:])
