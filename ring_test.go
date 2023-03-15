@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -300,6 +301,23 @@ func TestBloom_MarshalStorage(t *testing.T) {
 	}
 	// unexpected version should error
 	out[0] = 0
+
+}
+
+// This tests a previous error in storage marshal/nmarshal where the
+// size differed from expected.
+func TestBloom_StorageSize(t *testing.T) {
+	orig, err := Init(30, 0.05)
+	require.NoError(t, err)
+	unstored, err := Init(30, 0.05)
+	require.NoError(t, err)
+
+	marsh, err := orig.MarshalStorage()
+	require.NoError(t, err)
+
+	unstored.UnmarshalStorage(marsh, orig.GetHashOpCount())
+
+	require.Equal(t, orig, unstored)
 
 }
 
