@@ -48,7 +48,7 @@ func Init(elements int, falsePositive float64) (*Bloom, error) {
 	// size must be a multiple of 8, round up
 	r.size += r.size%8
 	r.hash = uint64(math.Ceil(k))
-	r.bits = make([]uint8, r.size/8+1)
+	r.bits = make([]uint8, r.size/8)
 	return &r, nil
 }
 
@@ -70,7 +70,7 @@ func InitByParameters(size, hashFunctions uint64) (*Bloom, error) {
 	// size must be a multiple of 8, round up
 	r.size += r.size%8
 	r.hash = hashFunctions
-	r.bits = make([]uint8, r.size/8+1)
+	r.bits = make([]uint8, r.size/8)
 	return &r, nil
 }
 
@@ -167,7 +167,7 @@ func (r *Bloom) UnmarshalBinary(data []byte) error {
 	r.size = binary.BigEndian.Uint64(data[1:9])
 	r.hash = binary.BigEndian.Uint64(data[9:17])
 	// sanity check against the bits being the wrong size
-	if len(r.bits) != int(r.size/8+1) {
+	if r.size%8 != 0 {
 		r.bits = make([]uint8, r.size/8+1)
 	}
 	copy(r.bits, data[17:])
@@ -182,7 +182,7 @@ func (r *Bloom) MarshalStorage() ([]byte, error) {
 
 	out := make([]byte, len(r.bits))
 	// Exclude version bit
-	copy(out[:], r.bits[1:])
+	copy(out, r.bits)
 	r.mutex.RUnlock()
 
 	return out, nil
@@ -192,11 +192,9 @@ func (r *Bloom) MarshalStorage() ([]byte, error) {
 // passed in data into the bloom filters bit array.
 // Included for efficient DB storage purposes
 func (r *Bloom) UnmarshalStorage(data []byte, hash uint64) error {
-	// 17 bytes for version + size + hash and 1 byte at least for bits
-	if len(data) < 17+1 {
-		return fmt.Errorf("incorrect length: %d", len(data))
+	if data == nil {
+		return errElements
 	}
-
 	if r.mutex == nil {
 		r.mutex = new(sync.RWMutex)
 	}
@@ -204,12 +202,12 @@ func (r *Bloom) UnmarshalStorage(data []byte, hash uint64) error {
 	defer r.mutex.Unlock()
 
 	r.hash = hash
-	r.size = uint64((len(r.bits) - 1) * 8)
+	r.size = uint64(len(r.bits) * 8)
 	// sanity check against the bits being the wrong size
-	if len(r.bits) != int(r.size/8+1) {
-		r.bits = make([]uint8, r.size/8+1)
+	if len(r.bits) != int(r.size/8) {
+		r.bits = make([]uint8, r.size/8)
 	}
-	copy(r.bits[1:], data[:])
+	copy(r.bits, data)
 
 	return nil
 }
