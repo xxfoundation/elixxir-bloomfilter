@@ -173,7 +173,7 @@ func (r *Bloom) MarshalStorage() ([]byte, error) {
 
 	out := make([]byte, len(r.bits))
 	// Exclude version bit
-	copy(out[:], r.bits[1:])
+	copy(out[:], r.bits[:])
 
 	return out, nil
 }
