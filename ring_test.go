@@ -321,6 +321,23 @@ func TestBloom_StorageSize(t *testing.T) {
 
 }
 
+func TestBloom_BufferSize(t *testing.T) {
+	orig, err := Init(30, 0.05)
+	require.NoError(t, err)
+	require.Equal(t, len(orig.bits), orig.BufferSize())
+	size := 200
+	orig2, err := InitByParameters(uint64(size), 3)
+	require.NoError(t, err)
+	require.Equal(t, size/8, orig2.BufferSize())
+	size = 201
+	orig3, err := InitByParameters(uint64(size), 3)
+	require.NoError(t, err)
+	require.Equal(t, (size+7)/8, orig3.BufferSize())
+	marshaled, err := orig3.MarshalStorage()
+	require.NoError(t, err)
+	require.Equal(t, len(marshaled), orig3.BufferSize())
+}
+
 // intToByte converts an int (32-bit max) to byte array.
 func intToByte(b []byte, v int) {
 	_ = b[3] // memory safety
