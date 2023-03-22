@@ -201,6 +201,14 @@ func (r *Bloom) UnmarshalStorage(data []byte) error {
 	return nil
 }
 
+// BufferSize returns the size of the buffer the filter is using, in bytes
+// this is the same size as the outputted buffer from Bloom.MarshalStorage
+func (r *Bloom) BufferSize() int {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return len(r.bits)
+}
+
 func getBuffSize(size uint64) uint64 {
 	if size%8 != 0 {
 		return size/8 + 1
